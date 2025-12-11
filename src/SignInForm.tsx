@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export function SignInForm() {
-  const { signIn } = useAuthActions();
+  const { signIn, signUp } = useAuthActions();
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [submitting, setSubmitting] = useState(false);
 
@@ -15,18 +15,25 @@ export function SignInForm() {
         onSubmit={(e) => {
           e.preventDefault();
           setSubmitting(true);
+
           const formData = new FormData(e.target as HTMLFormElement);
-          formData.set("flow", flow);
-          void signIn("password", formData).catch((error) => {
+
+          const action =
+            flow === "signIn"
+              ? signIn("password", formData)
+              : signUp("password", formData);
+
+          void action.catch((error: any) => {
             let toastTitle = "";
+
             if (error.message.includes("Invalid password")) {
               toastTitle = "Invalid password. Please try again.";
+            } else if (flow === "signIn") {
+              toastTitle = "Could not sign in. Did you mean to sign up?";
             } else {
-              toastTitle =
-                flow === "signIn"
-                  ? "Could not sign in, did you mean to sign up?"
-                  : "Could not sign up, did you mean to sign in?";
+              toastTitle = "Could not sign up. Did you mean to sign in?";
             }
+
             toast.error(toastTitle);
             setSubmitting(false);
           });

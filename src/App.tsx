@@ -1,11 +1,7 @@
 import { Toaster } from "sonner";
 import { HostView } from "./HostView";
 import { PlayerView } from "./PlayerView";
-import { SignInForm } from "./SignInForm";
-import { SignOutButton } from "./SignOutButton";
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
 
 export default function App() {
   const [mode, setMode] = useState<"host" | "player" | "signin" | null>(null);
@@ -13,8 +9,6 @@ export default function App() {
     const saved = localStorage.getItem("darkMode");
     return saved ? JSON.parse(saved) : false;
   });
-
-  const user = useQuery(api.auth.loggedInUser);
 
   useEffect(() => {
     // Check if URL has join parameter - if so, force player mode
@@ -36,7 +30,9 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors">
       <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm h-16 flex justify-between items-center border-b dark:border-gray-700 shadow-sm px-4">
-        <h2 className="text-xl font-semibold text-primary dark:text-blue-400">Math Competition</h2>
+        <h2 className="text-xl font-semibold text-primary dark:text-blue-400">
+          Math Competition
+        </h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setDarkMode(!darkMode)}
@@ -45,11 +41,6 @@ export default function App() {
           >
             {darkMode ? "🌞" : "🌙"}
           </button>
-          {user && !user.isAnonymous && (
-            <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded text-sm">
-              {user.name || user.email}
-            </div>
-          )}
           {mode && (
             <button
               onClick={() => setMode(null)}
@@ -62,7 +53,7 @@ export default function App() {
       </header>
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-4xl mx-auto">
-          <Content mode={mode} setMode={setMode} user={user} />
+          <Content mode={mode} setMode={setMode} />
         </div>
       </main>
       <Toaster />
@@ -73,18 +64,13 @@ export default function App() {
 function Content({
   mode,
   setMode,
-  user,
 }: {
   mode: "host" | "player" | "signin" | null;
   setMode: (mode: "host" | "player" | "signin" | null) => void;
-  user: any;
 }) {
   // Check if user came from QR code - if so, don't show host option
   const params = new URLSearchParams(window.location.search);
   const isFromQRCode = params.get("join") !== null;
-
-  // Only show host option if user is authenticated and not anonymous
-  const canHost = user && !user.isAnonymous;
 
   if (!mode) {
     return (
@@ -98,20 +84,12 @@ function Content({
           </p>
         </div>
         <div className="flex gap-4 flex-wrap justify-center">
-          {!isFromQRCode && canHost && (
+          {!isFromQRCode && (
             <button
               onClick={() => setMode("host")}
               className="px-8 py-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-lg text-lg"
             >
               Host a Game
-            </button>
-          )}
-          {!isFromQRCode && !canHost && (
-            <button
-              onClick={() => setMode("signin")}
-              className="px-8 py-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover transition-colors shadow-lg text-lg"
-            >
-              Sign In to Host
             </button>
           )}
           <button
@@ -125,15 +103,7 @@ function Content({
     );
   }
 
-  if (mode === "signin") {
-    return <SignInView user={user} setMode={setMode} />;
-  }
-
   if (mode === "host") {
-    if (!canHost) {
-      setMode("signin");
-      return null;
-    }
     return <HostView onBack={() => setMode(null)} />;
   }
 
@@ -144,16 +114,18 @@ function Content({
   return null;
 }
 
-function SignInView({ 
-  user, 
-  setMode 
-}: { 
-  user: any; 
+function SignInView({
+  user,
+  setMode,
+}: {
+  user: any;
   setMode: (mode: "host" | "player" | "signin" | null) => void;
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-center dark:text-white">Host Sign In</h2>
+      <h2 className="text-2xl font-bold mb-6 text-center dark:text-white">
+        Host Sign In
+      </h2>
       <SignInForm />
       {user && !user.isAnonymous && (
         <div className="mt-6 pt-6 border-t dark:border-gray-700">
