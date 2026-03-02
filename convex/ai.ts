@@ -72,7 +72,10 @@ export const generateQuestions = action({
     const focusTopics = pickTopics(5);
     const seed = Math.floor(Math.random() * 1_000_000);
 
-    const client = new Anthropic();
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set in Convex environment variables");
+
+    const client = new Anthropic({ apiKey });
 
     const response = await client.messages.create({
       model: "claude-opus-4-6",
