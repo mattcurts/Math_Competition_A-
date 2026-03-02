@@ -34,6 +34,7 @@ export function HostView({ onBack }: { onBack: () => void }) {
   ]);
   const [csvError, setCsvError] = useState("");
   const [aiDifficulty, setAiDifficulty] = useState(3);
+  const [aiPin, setAiPin] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState("");
 
@@ -171,7 +172,7 @@ export function HostView({ onBack }: { onBack: () => void }) {
     setAiError("");
     setIsGenerating(true);
     try {
-      const questions = await generateQuestions({ difficulty: aiDifficulty });
+      const questions = await generateQuestions({ difficulty: aiDifficulty, pin: aiPin });
       setNewQuestions(questions.map((q) => ({ question: q.question, answer: String(q.answer) })));
       setCsvError("");
     } catch (err) {
@@ -291,11 +292,21 @@ export function HostView({ onBack }: { onBack: () => void }) {
                     {["", "very easy", "easy", "medium", "hard", "very hard"][aiDifficulty]}
                   </span>
                 </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-purple-700 dark:text-purple-400">PIN:</span>
+                  <input
+                    type="password"
+                    value={aiPin}
+                    onChange={(e) => setAiPin(e.target.value)}
+                    placeholder="Enter PIN"
+                    className="w-28 px-2 py-1 text-sm border border-purple-300 dark:border-purple-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
               </div>
               <button
                 type="button"
                 onClick={handleGenerateQuestions}
-                disabled={isGenerating}
+                disabled={isGenerating || !aiPin}
                 className="px-4 py-2 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {isGenerating ? (

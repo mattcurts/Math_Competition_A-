@@ -64,13 +64,17 @@ function pickTopics(n: number): string[] {
 }
 
 export const generateQuestions = action({
-  args: { difficulty: v.number() },
+  args: { difficulty: v.number(), pin: v.string() },
   returns: v.array(v.object({ question: v.string(), answer: v.number() })),
   handler: async (ctx, args) => {
     const difficultyLabel =
       DIFFICULTY_LABELS[args.difficulty] ?? DIFFICULTY_LABELS[3];
     const focusTopics = pickTopics(5);
     const seed = Math.floor(Math.random() * 1_000_000);
+
+    const expectedPin = process.env.AI_PIN;
+    if (!expectedPin) throw new Error("AI_PIN is not set in Convex environment variables");
+    if (args.pin !== expectedPin) throw new Error("Incorrect PIN");
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set in Convex environment variables");
