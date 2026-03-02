@@ -258,6 +258,24 @@ export function PlayerView({ onBack }: { onBack: () => void }) {
     );
   }
 
+  const myLeaderboardRank = leaderboard
+    ? leaderboard.findIndex((p) => p.playerId === playerId)
+    : -1;
+  const prizeBanner =
+    session.prizeThreshold != null &&
+    session.prizeDescription &&
+    myLeaderboardRank !== -1 &&
+    myLeaderboardRank + 1 <= session.prizeThreshold ? (
+      <div className="mt-6 p-5 bg-yellow-50 dark:bg-yellow-900/30 border-2 border-yellow-400 dark:border-yellow-500 rounded-xl text-center">
+        <p className="text-2xl font-bold text-yellow-800 dark:text-yellow-200 mb-1">
+          You're in the top {session.prizeThreshold}!
+        </p>
+        <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+          Find <span className="font-semibold">{session.prizeDescription}</span> to claim your prize!
+        </p>
+      </div>
+    ) : null;
+
   if (session.status === "ended") {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
@@ -272,6 +290,7 @@ export function PlayerView({ onBack }: { onBack: () => void }) {
               </p>
             </div>
           )}
+          {prizeBanner}
           <button
             onClick={handleBack}
             className="mt-6 px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover transition-colors"
@@ -366,6 +385,7 @@ export function PlayerView({ onBack }: { onBack: () => void }) {
               {progress.correctCount}/{progress.totalQuestions}
             </p>
           </div>
+          {prizeBanner}
         </div>
 
         {leaderboard && leaderboard.length > 0 && (

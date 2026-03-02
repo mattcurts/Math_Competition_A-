@@ -51,6 +51,8 @@ export const getQuestionSets = query({
 export const createSession = mutation({
   args: {
     questionSetId: v.string(),
+    prizeThreshold: v.optional(v.number()),
+    prizeDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     let questions;
@@ -85,6 +87,8 @@ export const createSession = mutation({
       questions,
       roomCode,
       questionSetId: args.questionSetId,
+      ...(args.prizeThreshold != null && { prizeThreshold: args.prizeThreshold }),
+      ...(args.prizeDescription && { prizeDescription: args.prizeDescription }),
     });
 
     return sessionId;

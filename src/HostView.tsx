@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
 import { Id } from "../convex/_generated/dataModel";
@@ -13,6 +13,7 @@ export function HostView({ onBack }: { onBack: () => void }) {
   const endGame = useMutation(api.sessions.endGame);
   const deleteQuestionSet = useMutation(api.sessions.deleteQuestionSet);
   const createQuestionSet = useMutation(api.sessions.createQuestionSet);
+  const generateQuestions = useAction(api.ai.generateQuestions);
   const questionSets = useQuery(api.sessions.getQuestionSets);
   const session = useQuery(
     api.sessions.getSession,
@@ -24,18 +25,29 @@ export function HostView({ onBack }: { onBack: () => void }) {
   );
 
   const [isCreating, setIsCreating] = useState(false);
+  const [prizeThreshold, setPrizeThreshold] = useState("");
+  const [prizeDescription, setPrizeDescription] = useState("");
   const [newSetName, setNewSetName] = useState("");
   const [newSetDescription, setNewSetDescription] = useState("");
   const [newQuestions, setNewQuestions] = useState<Array<{ question: string; answer: string }>>([
     { question: "", answer: "" }
   ]);
+  const [csvError, setCsvError] = useState("");
+  const [aiDifficulty, setAiDifficulty] = useState(3);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const handleCreateSession = async () => {
     if (!selectedQuestionSet) return;
     
     setIsCreating(true);
+    const threshold = prizeThreshold.trim() ? parseInt(prizeThreshold.trim()) : undefined;
     try {
-      const id = await createSession({ questionSetId: selectedQuestionSet });
+      const id = await createSession({
+        questionSetId: selectedQuestionSet,
+        ...(threshold && threshold > 0 && { prizeThreshold: threshold }),
+        ...(prizeDescription.trim() && { prizeDescription: prizeDescription.trim() }),
+      });
       setSessionId(id);
     } finally {
       setIsCreating(false);
@@ -84,6 +96,8 @@ export function HostView({ onBack }: { onBack: () => void }) {
       setNewSetName("");
       setNewSetDescription("");
       setNewQuestions([{ question: "", answer: "" }]);
+      setCsvError("");
+      setAiError("");
     } catch (error) {
       alert("Failed to create question set");
     }
@@ -101,6 +115,81 @@ export function HostView({ onBack }: { onBack: () => void }) {
     const updated = [...newQuestions];
     updated[index][field] = value;
     setNewQuestions(updated);
+  };
+
+  const parseCsv = (text: string) => {
+    setCsvError("");
+    const lines = text.trim().split(/\r?\n/);
+    const parsed: Array<{ question: string; answer: string }> = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const lastComma = line.lastIndexOf(",");
+      if (lastComma === -1) {
+        setCsvError(`Row ${i + 1}: missing comma separator`);
+        return;
+      }
+
+      const question = line.substring(0, lastComma).trim();
+      const answer = line.substring(lastComma + 1).trim();
+
+      // Skip header row if answer column is non-numeric
+      if (i === 0 && isNaN(Number(answer))) continue;
+
+      if (!question) {
+        setCsvError(`Row ${i + 1}: question cannot be empty`);
+        return;
+      }
+      if (answer === "" || isNaN(Number(answer))) {
+        setCsvError(`Row ${i + 1}: answer must be a number`);
+        return;
+      }
+
+      parsed.push({ question, answer });
+    }
+
+    if (parsed.length === 0) {
+      setCsvError("No valid questions found in CSV");
+      return;
+    }
+
+    setNewQuestions(parsed);
+  };
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => parseCsv(event.target?.result as string);
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleGenerateQuestions = async () => {
+    setAiError("");
+    setIsGenerating(true);
+    try {
+      const questions = await generateQuestions({ difficulty: aiDifficulty });
+      setNewQuestions(questions.map((q) => ({ question: q.question, answer: String(q.answer) })));
+      setCsvError("");
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Failed to generate questions");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const downloadCsvTemplate = () => {
+    const csv = "question,answer\n13 × 14,182\n15 + 27,42\n100 ÷ 4,25";
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "questions_template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (showCreateForm) {
@@ -152,6 +241,76 @@ export function HostView({ onBack }: { onBack: () => void }) {
                 + Add Question
               </button>
             </div>
+
+            <div className="flex gap-2 mb-3">
+              <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium dark:text-gray-200">
+                Import CSV
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleCsvUpload}
+                  className="hidden"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={downloadCsvTemplate}
+                className="px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Download Template
+              </button>
+            </div>
+            {csvError && (
+              <p className="text-sm text-red-600 dark:text-red-400 mb-2">{csvError}</p>
+            )}
+
+            <div className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-2">
+                  Auto-generate with AI
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-purple-700 dark:text-purple-400">Difficulty:</span>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => setAiDifficulty(level)}
+                        className={`w-8 h-8 rounded-full text-sm font-bold transition-colors ${
+                          aiDifficulty === level
+                            ? "bg-purple-600 text-white"
+                            : "bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 border border-purple-300 dark:border-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/40"
+                        }`}
+                      >
+                        {level}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-purple-600 dark:text-purple-400 italic">
+                    {["", "very easy", "easy", "medium", "hard", "very hard"][aiDifficulty]}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateQuestions}
+                disabled={isGenerating}
+                className="px-4 py-2 bg-purple-600 text-white text-sm font-semibold rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {isGenerating ? (
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Generating…
+                  </span>
+                ) : (
+                  "Generate 20 Questions"
+                )}
+              </button>
+            </div>
+            {aiError && (
+              <p className="text-sm text-red-600 dark:text-red-400 mb-2">{aiError}</p>
+            )}
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {newQuestions.map((q, index) => (
@@ -263,6 +422,41 @@ export function HostView({ onBack }: { onBack: () => void }) {
               </div>
             ))}
             
+            <div className="border dark:border-gray-700 rounded-lg p-4 space-y-3 mt-2">
+              <h3 className="text-sm font-semibold dark:text-gray-200">
+                Prize Settings{" "}
+                <span className="font-normal text-gray-500 dark:text-gray-400">(optional)</span>
+              </h3>
+              <div className="flex gap-3">
+                <div className="w-28">
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Top # players</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={prizeThreshold}
+                    onChange={(e) => setPrizeThreshold(e.target.value)}
+                    placeholder="e.g. 3"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Where to claim / what to find</label>
+                  <input
+                    type="text"
+                    value={prizeDescription}
+                    onChange={(e) => setPrizeDescription(e.target.value)}
+                    placeholder="e.g. the teacher's desk for a candy bar"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+              </div>
+              {prizeThreshold && prizeDescription && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                  Players finishing in the top {prizeThreshold} will be told: "Find {prizeDescription}"
+                </p>
+              )}
+            </div>
+
             <button
               onClick={handleCreateSession}
               disabled={!selectedQuestionSet || isCreating}

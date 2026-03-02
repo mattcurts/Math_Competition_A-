@@ -22,6 +22,8 @@ const applicationTables = {
     })),
     roomCode: v.optional(v.string()),
     questionSetId: v.optional(v.string()),
+    prizeThreshold: v.optional(v.number()),
+    prizeDescription: v.optional(v.string()),
   }).index("by_room_code", ["roomCode"]),
 
   players: defineTable({
