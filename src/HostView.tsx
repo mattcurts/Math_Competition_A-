@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useAction } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Id } from "../convex/_generated/dataModel";
 import QRCode from "react-qr-code";
 
@@ -23,6 +24,15 @@ export function HostView({ onBack }: { onBack: () => void }) {
     api.sessions.getLeaderboard,
     sessionId ? { sessionId } : "skip"
   );
+
+  const user = useQuery(api.auth.loggedInUser);
+  const { signIn } = useAuthActions();
+
+  useEffect(() => {
+    if (user === null) {
+      void signIn("anonymous");
+    }
+  }, [user, signIn]);
 
   const [isCreating, setIsCreating] = useState(false);
   const [prizeThreshold, setPrizeThreshold] = useState("");
