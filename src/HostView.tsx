@@ -98,6 +98,9 @@ export function HostView({ onBack }: { onBack: () => void }) {
     }
 
     try {
+      if (!user) {
+        await signIn("anonymous");
+      }
       await createQuestionSet({
         name: newSetName.trim(),
         description: newSetDescription.trim(),
@@ -111,7 +114,7 @@ export function HostView({ onBack }: { onBack: () => void }) {
       setAiError("");
     } catch (error) {
       console.error("createQuestionSet failed:", error);
-      alert(`Failed to create question set: ${error instanceof Error ? error.message : String(error)}`);
+      alert("Failed to create question set");
     }
   };
 
