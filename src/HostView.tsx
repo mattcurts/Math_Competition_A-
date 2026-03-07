@@ -110,7 +110,8 @@ export function HostView({ onBack }: { onBack: () => void }) {
       setCsvError("");
       setAiError("");
     } catch (error) {
-      alert("Failed to create question set");
+      console.error("createQuestionSet failed:", error);
+      alert(`Failed to create question set: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
