@@ -97,10 +97,18 @@ export function HostView({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    console.log("Submitting. user =", user, "questions sample:", questions.slice(0, 2));
     try {
-      if (!user) {
+      if (user === null) {
         await signIn("anonymous");
       }
+    } catch (authError) {
+      console.error("signIn failed:", authError);
+      alert(`Auth failed: ${authError instanceof Error ? authError.message : String(authError)}`);
+      return;
+    }
+
+    try {
       await createQuestionSet({
         name: newSetName.trim(),
         description: newSetDescription.trim(),
@@ -114,7 +122,7 @@ export function HostView({ onBack }: { onBack: () => void }) {
       setAiError("");
     } catch (error) {
       console.error("createQuestionSet failed:", error);
-      alert("Failed to create question set");
+      alert(`Mutation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
